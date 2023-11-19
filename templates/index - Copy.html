@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FishApp - Mobile Image Capture/Pick and Scan</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 20px;
+      }
+
+      button {
+        padding: 10px;
+        font-size: 16px;
+        cursor: pointer;
+        margin: 10px;
+        font-weight: bold;
+        border-radius: 5px;
+      }
+
+      button:hover {
+        box-shadow: 2px 2px 5px black;
+      }
+
+      #imagePreview {
+        margin-top: 20px;
+        max-width: 540px;
+        max-height: 300px;
+      }
+
+      #progressBar {
+        margin-top: 20px;
+        display: none;
+      }
+
+      #result {
+        margin-top: 20px;
+        font-weight: bold;
+      }
+
+      .picked-image-container {
+        margin-top: 20px;
+        padding: 10px;
+        border: 2px solid #ccc;
+        display: inline-block;
+      }
+
+      .picked-image-container img {
+        max-width: 100%;
+        max-height: 150px;
+        display: block;
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        margin: 5px;
+        padding: 5px;
+      }
+
+      #logo {
+        height: 40px;
+      }
+
+      #logo-text {
+        margin: 5px;
+        margin-left: 30px;
+      }
+
+      .flex-container {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #scanImageBtn {
+        display: none;
+      }
+
+      .result-label {
+        font-size: 18px;
+        font-weight: bold;
+        color: green;
+      }
+
+      .result-score {
+        font-size: 16px;
+        color: #333;
+      }
+
+      #cameraContainer {
+        position: relative;
+        width: 320px; /* Set the desired width for the camera window */
+        height: 240px; /* Set the desired height for the camera window */
+        overflow: hidden;
+        margin: 20px auto;
+        display: none; /* Initially hide the camera container */
+    }
+
+    #cameraFeed {
+        width: 100%;
+        height: 100%;
+    }
+
+    #captureButton {
+        display: none; /* Initially hide the capture button */
+        margin: 10px auto;
+        padding: 10px;
+        font-size: 16px;
+        cursor: pointer;
+        font-weight: bold;
+        border-radius: 5px;
+    }
+
+    </style>
+  </head>
+  <body>
+    <header>
+      <img
+        id="logo"
+        src="https://img.freepik.com/premium-vector/cute-fish-cartoon-fish-clipart-vector-illustration_160901-3036.jpg?w=2000"
+      />
+      <h2 id="logo-text">FishApp</h2>
+    </header>
+
+    <hr />
+
+    <div class="flex-container">
+      <button id="captureImageBtn">Capture Image</button>
+      <button id="pickImageBtn">Pick Image</button>
+      <button id="scanImageBtn">Scan</button>
+    </div>
+
+    <div id="imagePreview"></div>
+
+    <div id="progressBar">
+      <progress id="scanProgress" max="100"></progress>
+      <p id="progressText"></p>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        var captureImageBtn = document.getElementById("captureImageBtn");
+        var pickImageBtn = document.getElementById("pickImageBtn");
+        var scanImageBtn = document.getElementById("scanImageBtn");
+        var imagePreview = document.getElementById("imagePreview");
+        var progressBar = document.getElementById("progressBar");
+        var scanProgress = document.getElementById("scanProgress");
+        var progressText = document.getElementById("progressText");
+        var resultContainer = document.getElementById("result");
+
+        var scannedImageDataURL;
+
+        // Event listener for capturing an image
+        captureImageBtn.addEventListener("click", function () {
+          // Implement capture logic if needed
+          captureImage();
+        });
+
+        // Event listener for picking an image from a file
+        pickImageBtn.addEventListener("click", function () {
+          var input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/*";
+
+          input.addEventListener("change", function (event) {
+            var file = event.target.files[0];
+
+            if (file) {
+              var reader = new FileReader();
+
+              reader.onload = function (e) {
+                // Display the picked image
+                displayImage(e.target.result);
+              };
+
+              reader.readAsDataURL(file);
+            }
+          });
+
+          // Trigger the file input click
+          input.click();
+        });
+
+        // Event listener for scanning the picked image
+        scanImageBtn.addEventListener("click", function () {
+          if (!scannedImageDataURL) {
+            alert("Please capture or pick an image first.");
+            return;
+          }
+
+          // Display progress bar and hide result
+          progressBar.style.display = "block";
+          resultContainer.innerHTML = "";
+
+          // Send the image data to the Flask server with progress updates
+          sendImageToBackend(scannedImageDataURL);
+        });
+
+        // Function to capture an image using the device camera
+      // Function to capture an image using the device camera
+    // Function to capture an image using the device camera
+function captureImage() {
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function (stream) {
+            // Set the video element source to the camera stream
+            cameraFeed.srcObject = stream;
+
+            // Display the camera window
+            cameraContainer.style.display = 'block';
+            // Display the capture button
+            captureButton.style.display = 'block';
+
+            // Create a canvas element to capture the frame
+            var canvas = document.createElement('canvas');
+            var context = canvas.getContext('2d');
+            canvas.width = 320; // Set the desired width
+            canvas.height = 240; // Set the desired height
+
+            // Draw the current frame from the camera onto the canvas
+            context.drawImage(cameraFeed, 0, 0, canvas.width, canvas.height);
+
+            // Stop the video stream when the capture button is clicked
+            captureButton.addEventListener('click', function () {
+                // Get the image data from the canvas
+                var imageDataURL = canvas.toDataURL('image/jpeg');
+                
+                // Stop the video stream
+                stream.getTracks().forEach(track => track.stop());
+
+                // Hide the camera window
+                cameraContainer.style.display = 'none';
+                // Hide the capture button
+                captureButton.style.display = 'none';
+
+                // Display the captured image
+                displayImage(imageDataURL);
+            });
+        })
+        .catch(function (error) {
+            console.error('Error accessing the camera:', error);
+            alert('Error accessing the camera. Please check your camera settings.');
+        });
+}
+
+        // Function to send the image to the backend
+        function sendImageToBackend(imageDataURL) {
+          // Initialize progress to 0
+          var progress = 0;
+
+          // Set interval to simulate progress updates
+          var progressInterval = setInterval(function () {
+            // Update progress bar and text
+            scanProgress.value = progress;
+            progressText.textContent = progress + "% Scanned...";
+
+            // Increment progress
+            progress += 10;
+
+            // If progress reaches 100, stop the interval
+            if (progress > 100) {
+              clearInterval(progressInterval);
+
+              // Send the image data to the Flask server using Fetch API
+              fetch("/predict", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ image: scannedImageDataURL }),
+              })
+                // Inside the fetch success block
+                .then((response) => response.json())
+                .then((result) => {
+                  // Hide progress bar
+                  progressBar.style.display = "none";
+
+                  // Check if the expected properties are present in the result object
+                  if (
+                    "prediction_label" in result &&
+                    "prediction_score" in result
+                  ) {
+                    // Display the prediction result
+                    resultContainer.innerHTML = `
+            <p class="result-label">Prediction: ${result.prediction_label}</p>
+            <p class="result-score">Prediction Score: ${result.prediction_score.toFixed(
+              2
+            )}</p>
+            <p class="result-message">Image received and prediction complete.</p>
+        `;
+                  } else {
+                    // Handle unexpected result structure
+                    console.error("Unexpected result structure:", result);
+                    resultContainer.innerHTML =
+                      '<p class="result-message">Unexpected result structure.</p>';
+                  }
+                })
+                .catch((error) => {
+                  console.error("Error:", error);
+                  resultContainer.innerHTML =
+                    '<p class="result-message">Error during prediction.</p>';
+                });
+            }
+          }, 500); // Adjust the interval duration as needed
+        }
+
+        // Function to display the image in the preview div
+        function displayImage(imageDataURL) {
+          scannedImageDataURL = imageDataURL;
+
+          // Create a container element for the picked image
+          var imageContainer = document.createElement("div");
+          imageContainer.className = "picked-image-container";
+
+          // Create an image element
+          var image = document.createElement("img");
+          image.src = imageDataURL;
+          image.alt = "Captured/Picked Image";
+
+          // Append the image to the container
+          imageContainer.appendChild(image);
+
+          // Append the container to the preview div
+          imagePreview.innerHTML = "";
+          imagePreview.appendChild(imageContainer);
+
+          scanImageBtn.style.display = "inline-block";
+        }
+      });
+    </script>
+  </body>
+</html>
